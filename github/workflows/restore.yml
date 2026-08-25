@@ -1,0 +1,85 @@
+name: Restore Wassli ZIP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Wassli ZIP to repository root
+        shell: bash
+        run: |
+          set -e
+
+          ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No ZIP file found"
+            exit 1
+          fi
+
+          echo "Using ZIP: $ZIP"
+
+          rm -rf /tmp/wassli
+          mkdir -p /tmp/wassli
+
+          unzip -q "$ZIP" -d /tmp/wassli
+
+          echo "ZIP extracted."
+
+          # Detect whether the ZIP contains one wrapper folder.
+          shopt -s nullglob
+          entries=(/tmp/wassli/*)
+
+          ROOT="/tmp/wassli"
+
+          if [ "${#entries[@]}" -eq 1 ] && [ -d "${entries[0]}" ]; then
+            ROOT="${entries[0]}"
+            echo "Wrapper folder detected: $ROOT"
+          else
+            echo "No wrapper folder detected."
+          fi
+
+          echo "Project root inside ZIP: $ROOT"
+
+          # Remove old repository files but preserve GitHub workflow files.
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name ".github" \
+            ! -name "*.zip" \
+            -exec rm -rf {} +
+
+          # Copy the actual project contents directly into repository root.
+          cp -a "$ROOT"/. .
+
+          # Never copy an internal Git repository.
+          find . -type d -name ".git" -prune -exec rm -rf {} +
+
+          echo "Restored project structure:"
+          ls -la
+
+      - name: Remove ZIP from repository
+        run: |
+          find . -maxdepth 1 -type f -iname "*.zip" -delete
+
+      - name: Commit restored project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Restore Wassli project from checkpoint"
+            git push
+          fi
