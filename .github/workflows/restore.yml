@@ -1,4 +1,4 @@
-name: Restore Wassli ZIP
+name: name: Restore Wassli Project
 
 on:
   workflow_dispatch:
