@@ -83,4 +83,4 @@ jobs:
             git commit -m "Restore Wassli project from checkpoint"
             git push
           fi
-restore-wassli.yml
+resto
